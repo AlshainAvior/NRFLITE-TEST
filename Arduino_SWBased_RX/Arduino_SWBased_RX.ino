@@ -1,9 +1,5 @@
 /*
 
-Demonstrates two-way communication without using acknowledgement data packets.  This is much slower
-than the hardware-based, ACK packet approach shown in the 'TwoWayCom_HardwareBased' example, but is
-more flexible.
-
 Radio    Arduino
 CE    -> 9
 CSN   -> 10 (Hardware SPI SS)
@@ -37,7 +33,7 @@ struct RadioPacket // Must be 32 bytes or less.
     RadioPacketType PacketType; // 2 bytes
     uint8_t FromRadioId;        // 1 byte
     char Message[29];           // 29 bytes and only a 28 character string can be sent since
-                                // the 29th character needs to be the string termination character.
+                                // the 29th character needs to be a string termination character.
 };
 
 NRFLite _radio;
@@ -55,7 +51,7 @@ void setup()
 
 void loop()
 {
-    uint32_t currentMillis = millis();
+    uint32_t currentMillis = millis(); // Save some time by only calling millis() once.
 
     // Send Data.
     if (currentMillis - _lastSendTime > 999)
@@ -81,7 +77,7 @@ void loop()
             {
                 String msg = String(radioData.Message);
 
-                Serial.print(millis());
+                Serial.print(currentMillis);
                 Serial.print(" Received '");
                 Serial.print(msg);
                 Serial.print("' from radio ");

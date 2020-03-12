@@ -33,7 +33,7 @@ struct RadioPacket // Must be 32 bytes or less.
     RadioPacketType PacketType; // 2 bytes
     uint8_t FromRadioId;        // 1 byte
     char Message[29];           // 29 bytes and only a 28 character string can be sent since
-                                // the 29th character needs to be the string termination character.
+                                // the 29th character needs to be a string termination character.
 };
 
 NRFLite _radio;
@@ -77,7 +77,7 @@ void loop()
             {
                 String msg = String(radioData.Message);
 
-                Serial.print(millis());
+                Serial.print(currentMillis);
                 Serial.print(" Received '");
                 Serial.print(msg);
                 Serial.print("' from radio ");
