@@ -1,18 +1,14 @@
 /*
 
-  Demonstrates two-way communication without using acknowledgement data packets.  This is much slower
-  than the hardware-based, ACK packet approach shown in the 'TwoWayCom_HardwareBased' example, but is
-  more flexible.
-
-  Radio    Arduino
-  CE    -> 9
-  CSN   -> 10 (Hardware SPI SS)
-  MOSI  -> 11 (Hardware SPI MOSI)
-  MISO  -> 12 (Hardware SPI MISO)
-  SCK   -> 13 (Hardware SPI SCK)
-  IRQ   -> No connection
-  VCC   -> No more than 3.6 volts
-  GND   -> GND
+Radio    Arduino
+CE    -> 9
+CSN   -> 10 (Hardware SPI SS)
+MOSI  -> 11 (Hardware SPI MOSI)
+MISO  -> 12 (Hardware SPI MISO)
+SCK   -> 13 (Hardware SPI SCK)
+IRQ   -> No connection
+VCC   -> No more than 3.6 volts
+GND   -> GND
 
 */
 
@@ -23,82 +19,86 @@ const static uint8_t RADIO_ID = 1;
 const static uint8_t DESTINATION_RADIO_ID = 0;
 const static uint8_t PIN_RADIO_CE = 9;
 const static uint8_t PIN_RADIO_CSN = 10;
-uint16_t _lastSendTime;
-uint16_t _lastReceiveTime;
+uint32_t _lastSendTime; // Needs to be uint32 to hold millis as it grows larger than uint16.
+uint32_t _lastReceivedTime;
 
-// already tried using packet type but not working
-//enum RadioPacketType
-//{
-//  Trigger,
-//  Response
-//};
-
-struct RadioPacket
+enum RadioPacketType
 {
-//  RadioPacketType PacketType;
-  uint8_t FromRadioId;
-  char Message[31];
+    Trigger,
+    Response
 };
 
+struct RadioPacket // Must be 32 bytes or less.
+{
+    RadioPacketType PacketType; // 2 bytes
+    uint8_t FromRadioId;        // 1 byte
+    char Message[29];           // 29 bytes and only a 28 character string can be sent since
+                                // the 29th character needs to be the string termination character.
+};
 
 NRFLite _radio;
-//RadioPacket _radioData;
 
 void setup()
 {
-  Serial.begin(115200);
+    Serial.begin(115200);
 
-  if (!_radio.init(RADIO_ID, PIN_RADIO_CE, PIN_RADIO_CSN,  NRFLite::BITRATE1MBPS, 75))
-  {
-    Serial.println("Cannot communicate with radio");
-    while (1); // Wait here forever.
-  }
+    if (!_radio.init(RADIO_ID, PIN_RADIO_CE, PIN_RADIO_CSN, NRFLite::BITRATE2MBPS, 75)) // 1MBPS did not work consistently.
+    {
+        Serial.println("Cannot communicate with radio");
+        while (1); // Wait here forever.
+    }
 }
 
 void loop()
 {
-  //Send Data;
-  if (millis() - _lastSendTime > 999)
-  {
-    _lastSendTime = millis();
-    sendMessage("Sending Data from TX Software");
-  }
+    uint32_t currentMillis = millis(); // Save some time by only calling millis() once.
 
-  // Show any received data.
-  if (millis() - _lastReceiveTime > 3999)
-  {
-    _lastReceiveTime = millis();
-
-    while (_radio.hasData())
+                                       // Send data.
+    if (currentMillis - _lastSendTime > 999)
     {
-      RadioPacket radioData;
-      _radio.readData(&radioData);
-//      if (radioData.PacketType == Response) { // already try this to both TX ( if equal to "Response") and RX ( if equal to "Trigger") but still not working
-      String msg = String(radioData.Message);
+        _lastSendTime = currentMillis;
+        sendMessage("Sending Data from TX Software");
 
-      Serial.print("Received '");
-      Serial.print(msg);
-      Serial.print("' from radio ");
-      Serial.println(radioData.FromRadioId);
-      delay(10);
-//      }
+        // Now that the send is complete, switch the radio back into RX mode so that it is listening for packets.
+        _radio.startRx();
     }
-  }
 
+    // Show any received data.
+    if (currentMillis - _lastReceivedTime > 999)
+    {
+        _lastReceivedTime = currentMillis;
+
+        while (_radio.hasData())
+        {
+            RadioPacket radioData;
+            _radio.readData(&radioData);
+
+            if (radioData.PacketType == Response)
+            {
+                String msg = String(radioData.Message);
+
+                Serial.print(millis());
+                Serial.print(" Received '");
+                Serial.print(msg);
+                Serial.print("' from radio ");
+                Serial.println(radioData.FromRadioId);
+            }
+        }
+    }
 }
 
 void sendMessage(String msg)
 {
-  RadioPacket messageData;
-//  messageData.PacketType = Trigger;
-  messageData.FromRadioId = RADIO_ID;
+    RadioPacket messageData;
+    messageData.PacketType = Trigger;
+    messageData.FromRadioId = RADIO_ID;
 
-  // Ensure the message is not too large for the MessagePacket.
-  if (msg.length() > sizeof(messageData.Message) - 1)
-  {
-    msg = msg.substring(0, sizeof(messageData.Message) - 1);
-  }
+    bool messageTooLargeForPacket = msg.length() > sizeof(messageData.Message) - 1;
+    if (messageTooLargeForPacket)
+    {
+        msg = msg.substring(0, sizeof(messageData.Message) - 1);
+    }
 
-  msg.getBytes((unsigned char*)messageData.Message, msg.length() + 1);
-  _radio.send(DESTINATION_RADIO_ID, &messageData, sizeof(messageData));
+    msg.getBytes((unsigned char*)messageData.Message, msg.length() + 1);
+    _radio.send(DESTINATION_RADIO_ID, &messageData, sizeof(messageData));
 }
