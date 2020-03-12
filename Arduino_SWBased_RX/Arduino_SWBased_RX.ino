@@ -57,7 +57,11 @@ void loop()
     if (currentMillis - _lastSendTime > 999)
     {
         _lastSendTime = currentMillis;
-        sendMessage("Sending Data from RX Software");
+        sendMessage("Sending Data from RX Software"); // Note this string is 29 characters, so its last
+                                                      // character will be cut off.  You could change the
+                                                      // logic and packet to support sending the string
+                                                      // in multiple packets, and then re-assembling
+                                                      // the entire string on the other side.
 
         // Now that the send is complete, switch the radio back into RX mode so that it is listening for packets.
         _radio.startRx();
