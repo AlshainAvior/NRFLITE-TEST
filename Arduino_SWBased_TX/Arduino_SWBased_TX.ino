@@ -33,7 +33,7 @@ struct RadioPacket // Must be 32 bytes or less.
     RadioPacketType PacketType; // 2 bytes
     uint8_t FromRadioId;        // 1 byte
     char Message[29];           // 29 bytes and only a 28 character string can be sent since
-                                // the 29th character needs to be the string termination character.
+                                // the 29th character needs to be a string termination character.
 };
 
 NRFLite _radio;
@@ -57,7 +57,11 @@ void loop()
     if (currentMillis - _lastSendTime > 999)
     {
         _lastSendTime = currentMillis;
-        sendMessage("Sending Data from TX Software");
+        sendMessage("Sending Data from TX Software"); // Note this string is 29 characters, so its last
+                                                      // character will be cut off.  You could change the
+                                                      // logic and packet to support sending the string
+                                                      // in multiple packets, and then re-assembling
+                                                      // the entire string on the other side.
 
         // Now that the send is complete, switch the radio back into RX mode so that it is listening for packets.
         _radio.startRx();
@@ -77,7 +81,7 @@ void loop()
             {
                 String msg = String(radioData.Message);
 
-                Serial.print(millis());
+                Serial.print(currentMillis);
                 Serial.print(" Received '");
                 Serial.print(msg);
                 Serial.print("' from radio ");
